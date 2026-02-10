@@ -53,7 +53,10 @@ if ($response === false || $http_code !== 200) {
 // Parse response dari FastAPI
 $result = json_decode($response, true);
 
-if ($result && $result['success']) {
+// Debug: Log response untuk troubleshooting
+error_log("FastAPI Response: " . $response);
+
+if ($result && isset($result['success']) && $result['success'] === true) {
     $student_id = (int)$result['student_id'];
     $confidence = $result['confidence'] / 100; // FastAPI returns percentage, convert back
 

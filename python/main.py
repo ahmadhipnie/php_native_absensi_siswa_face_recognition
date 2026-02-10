@@ -1,7 +1,7 @@
 """
 FastAPI Server untuk Face Recognition
 Menyediakan API endpoint untuk register wajah dan recognize wajah.
-Jalankan: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+Jalankan: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 """
 
 import os
@@ -259,7 +259,12 @@ async def recognize_face_endpoint(request: RecognizeRequest):
         # 6. Bandingkan dengan semua wajah terdaftar
         best_match = None
         best_distance = float('inf')
-        THRESHOLD = 0.6  # Semakin kecil = semakin strict
+
+        # Minimum confidence threshold: 70%
+        # Confidence = (1 - distance) * 100
+        # Distance threshold = 1 - 0.70 = 0.30
+        DISTANCE_THRESHOLD = 0.30
+        MIN_CONFIDENCE = 70.0
 
         for student in registered_students:
             try:
@@ -274,17 +279,27 @@ async def recognize_face_endpoint(request: RecognizeRequest):
             except (json.JSONDecodeError, ValueError):
                 continue
 
-        # 7. Return hasil
-        if best_match and best_distance < THRESHOLD:
+        # 7. Return hasil dengan threshold minimum 70% confidence
+        if best_match:
             confidence = round((1 - best_distance) * 100, 1)
-            return RecognizeResponse(
-                success=True,
-                student_id=best_match['id'],
-                nama=best_match['nama_lengkap'],
-                nis=best_match['nis'],
-                confidence=confidence,
-                distance=float(best_distance)
-            )
+
+            # Cek apakah confidence memenuhi threshold minimum
+            if confidence >= MIN_CONFIDENCE:
+                return RecognizeResponse(
+                    success=True,
+                    student_id=best_match['id'],
+                    nama=best_match['nama_lengkap'],
+                    nis=best_match['nis'],
+                    confidence=confidence,
+                    distance=float(best_distance)
+                )
+            else:
+                # Confidence di bawah 70%
+                return RecognizeResponse(
+                    success=False,
+                    confidence=confidence,
+                    message=f"Absensi gagal. Tingkat kecocokan hanya {confidence}%, minimum 70%. Wajah tidak cocok dengan data yang terdaftar."
+                )
         else:
             return RecognizeResponse(
                 success=False,
@@ -422,7 +437,7 @@ if __name__ == "__main__":
     import uvicorn
     print("=" * 50)
     print("  Face Recognition API Server")
-    print("  URL: http://localhost:8001")
-    print("  Docs: http://localhost:8001/docs")
+    print("  URL: http://localhost:8000")
+    print("  Docs: http://localhost:8000/docs")
     print("=" * 50)
-    uvicorn.run(app, host="0.0.0.0", port=8001, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)

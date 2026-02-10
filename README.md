@@ -239,7 +239,10 @@ php -S localhost:8001
    `face_recognition` menghasilkan encoding 128-dimensi → disimpan di database MySQL
 2. **Pengenalan**: Foto dari webcam → dikirim ke FastAPI `/api/recognize` → MediaPipe validasi ada wajah →
    `face_recognition` menghasilkan encoding → dibandingkan dengan semua encoding tersimpan →
-   jika distance < 0.6 (threshold) maka dikenali → PHP mencatat absensi ke database
+   jika confidence >= 70% (minimum threshold) maka dikenali → PHP mencatat absensi ke database
+
+> **Minimum Confidence Threshold: 70%**
+> Absensi hanya akan berhasil jika tingkat kecocokan wajah minimal 70%. Jika di bawah 70%, sistem akan menolak dan memberikan pesan bahwa wajah tidak cocok.
 
 ## 🔌 FastAPI Endpoints
 
@@ -282,3 +285,475 @@ define('FASTAPI_URL', 'http://localhost:8000');
 - Threshold default: 0.6 (dapat disesuaikan di `python/main.py`)
 - PHP berkomunikasi dengan Python melalui **HTTP/cURL** ke FastAPI (bukan shell_exec)
 - Pastikan **FastAPI server harus berjalan** sebelum menggunakan fitur face recognition
+
+---
+
+## 📖 Dokumentasi Proses
+
+### 1. Autentikasi & Sesi
+
+#### Login Process (`login.php`)
+| Langkah | Deskripsi |
+| ------- | --------- |
+| 1 | User memasukkan username & password |
+| 2 | PHP memquery tabel `admin` berdasarkan username |
+| 3 | Password diverifikasi menggunakan `password_verify()` |
+| 4 | Jika valid, buat session variables |
+| 5 | Redirect ke `pages/dashboard.php` |
+
+**Session Variables yang dibuat:**
+```php
+$_SESSION['admin_id']       // ID admin yang login
+$_SESSION['admin_username'] // Username admin
+$_SESSION['admin_nama']     // Nama lengkap admin
+```
+
+**File terkait:** `login.php`, `config/database.php` (session_start), `includes/header.php` (session check)
+
+#### Logout Process (`pages/logout.php`)
+| Langkah | Deskripsi |
+| ------- | --------- |
+| 1 | User klik tombol logout |
+| 2 | Panggil `session_destroy()` untuk hapus semua session |
+| 3 | Redirect ke halaman `login.php` |
+
+#### Session Protection
+Setiap halaman di `pages/` dilindungi oleh `includes/header.php` yang mengecek:
+```php
+if (!isset($_SESSION['admin_id'])) {
+    header("Location: " . BASE_URL . "login.php");
+    exit;
+}
+```
+
+---
+
+### 2. CRUD Data Siswa (`pages/siswa.php`)
+
+**Tabel Database:** `siswa`
+
+**Fields:**
+- `id` - Primary key (auto increment)
+- `nis` - Nomor Induk Siswa (unique)
+- `nama_lengkap` - Nama lengkap siswa
+- `jenis_kelamin` - L/P
+- `kelas_id` - Foreign key ke tabel kelas
+- `alamat` - Alamat siswa
+- `no_telepon` - Nomor telepon
+- `face_registered` - 0/1 (status registrasi wajah)
+- `status` - aktif/tidak aktif
+- `foto` - Nama file foto
+- `face_encoding` - JSON encoding wajah
+
+**Operasi CRUD:**
+
+| Operasi | Method | Query | Validasi |
+| ------- | ------ | ----- | -------- |
+| **Create** | POST | INSERT INTO siswa | `mysqli_real_escape_string()` semua input |
+| **Read** | GET | SELECT JOIN kelas | Menampilkan data dengan nama kelas |
+| **Update** | POST | UPDATE siswa | Cek NIS duplikat (kecuali ID sama) |
+| **Delete** | GET | DELETE FROM siswa | Hapus data berdasarkan ID |
+
+**Fitur Tambahan:**
+- Badge "Face Registered" jika `face_registered = 1`
+- Dropdown pilihan kelas dari tabel `kelas`
+- Upload foto profil (disimpan di `uploads/siswa/`)
+
+---
+
+### 3. CRUD Data Kelas (`pages/kelas.php`)
+
+**Tabel Database:** `kelas`
+
+**Fields:**
+- `id` - Primary key
+- `nama_kelas` - Nama kelas (mis: X IPA 1)
+- `jurusan` - Jurusan
+- `tahun_ajaran` - Tahun ajaran
+
+**Query dengan JOIN:**
+```sql
+SELECT k.*, COUNT(s.id) as jumlah_siswa
+FROM kelas k
+LEFT JOIN siswa s ON k.id = s.kelas_id
+GROUP BY k.id
+```
+
+---
+
+### 4. CRUD Mata Pelajaran (`pages/mapel.php`)
+
+**Tabel Database:** `mata_pelajaran`
+
+**Fields:**
+- `id` - Primary key
+- `kode_mapel` - Kode unik mapel
+- `nama_mapel` - Nama mata pelajaran
+
+---
+
+### 5. Absensi Face Recognition (`pages/absensi.php`)
+
+**Flow Lengkap:**
+
+```
+┌─────────────────┐
+│ User buka halaman│
+│ absensi.php     │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Pilih Kelas &   │
+│ Mata Pelajaran  │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Start Kamera    │
+│ (Webcam Access) │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Klik "Absen     │
+│ Sekarang"       │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Capture image   │
+│ dari webcam     │
+│ (base64)        │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│ Kirim ke api/recognize  │
+│ (image, kelas_id,       │
+│  mapel_id, tanggal)     │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│ PHP → FastAPI (cURL)    │
+│ POST /api/recognize     │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│ FastAPI Process:        │
+│ 1. Decode base64        │
+│ 2. Detect face          │
+│ 3. Generate encoding    │
+│ 4. Compare all faces    │
+│ 5. Return match + score │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│ Cek duplikasi absensi   │
+│ (hari ini, siswa ini,   │
+│  mapel ini)             │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│ Simpan foto & record:   │
+│ - uploads/absensi/      │
+│ - tabel absensi         │
+│ metode='face_recognition'│
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│ Tampilkan hasil:        │
+│ - Nama siswa            │
+│ - Kelas                 │
+│ - Confidence score      │
+└─────────────────────────┘
+```
+
+**Database Insert:**
+```sql
+INSERT INTO absensi (
+    siswa_id, kelas_id, mapel_id, tanggal, jam_masuk,
+    status, metode_absen, foto_absen, confidence_score
+) VALUES (?, ?, ?, ?, NOW(), 'hadir', 'face_recognition', ?, ?)
+```
+
+**API Endpoint:** `api/recognize.php`
+
+---
+
+### 6. Absensi Manual (`pages/absensi_manual.php`)
+
+**Flow:**
+
+| Langkah | Deskripsi |
+| ------- | --------- |
+| 1 | Pilih kelas dan tanggal |
+| 2 | JavaScript panggil `api/get_students.php` |
+| 3 | Tampilkan daftar siswa dengan dropdown status |
+| 4 | User pilih status (Hadir/Izin/Sakit/Alpha) |
+| 5 | Submit form (batch processing) |
+| 6 | Loop setiap siswa dan simpan/update absensi |
+
+**Status Options:**
+- `hadir` - Hadir di sekolah
+- `izin` - Izin (dengan keterangan)
+- `sakit` - Sakit (dengan keterangan)
+- `alpha` - Tanpa keterangan
+
+**API Endpoint:** `api/get_students.php`
+
+**Query untuk cek absensi existing:**
+```sql
+SELECT * FROM absensi
+WHERE siswa_id = ? AND kelas_id = ? AND tanggal = ?
+```
+
+---
+
+### 7. Registrasi Wajah (`pages/register_face.php`)
+
+**Flow Lengkap:**
+
+```
+┌─────────────────┐
+│ Pilih Siswa     │
+│ dari dropdown   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Start Kamera    │
+│ & preview       │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Capture 5 foto  │
+│ (tombol Capture)│
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Preview 5 foto  │
+│ (bisa hapus &   │
+│  ulang)         │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│ Kirim ke api/register_   │
+│ face.php:               │
+│ - student_id            │
+│ - images[] (5 base64)   │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│ PHP → FastAPI (cURL)    │
+│ POST /api/register      │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│ FastAPI Process:        │
+│ 1. Decode 5 images      │
+│ 2. Detect face each     │
+│ 3. Generate encodings   │
+│ 4. Average encodings    │
+│ 5. Save to face_data/   │
+│ 6. Update DB:           │
+│    - face_registered=1  │
+│    - face_encoding=JSON │
+│    - foto=photo.jpg     │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│ Return success/failed   │
+└─────────────────────────┘
+```
+
+**Penyimpanan File:**
+- `face_data/{student_id}/face_1.jpg` s/d `face_5.jpg` - Foto mentah
+- `face_data/{student_id}/encoding.npy` - Backup encoding (numpy)
+- `uploads/siswa/siswa_{student_id}.jpg` - Foto profil
+
+**Database Update (via Python):**
+```sql
+UPDATE siswa
+SET face_registered = 1,
+    face_encoding = ?,
+    foto = ?
+WHERE id = ?
+```
+
+---
+
+### 8. Laporan Absensi (`pages/laporan.php`)
+
+**Filter Options:**
+- Kelas
+- Rentang tanggal (dari - sampai)
+
+**Query JOIN:**
+```sql
+SELECT a.*, s.nama_lengkap, s.nis, s.foto as foto_siswa,
+       k.nama_kelas, m.nama_mapel
+FROM absensi a
+JOIN siswa s ON a.siswa_id = s.id
+JOIN kelas k ON a.kelas_id = k.id
+JOIN mata_pelajaran m ON a.mapel_id = m.id
+WHERE k.id = ? AND a.tanggal BETWEEN ? AND ?
+ORDER BY a.tanggal DESC, a.jam_masuk DESC
+```
+
+**Display Columns:**
+- Tanggal & Jam
+- Nama Siswa & NIS
+- Kelas & Mapel
+- Status (Hadir/Izin/Sakit/Alpha)
+- Metode (Face Recognition / Manual)
+- Confidence Score (untuk face recognition)
+
+---
+
+### 9. Rekap Absensi Bulanan (`pages/rekap.php`)
+
+**Query Summary:**
+```sql
+SELECT s.id, s.nis, s.nama_lengkap, k.nama_kelas,
+    SUM(CASE WHEN a.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+    SUM(CASE WHEN a.status = 'izin' THEN 1 ELSE 0 END) as izin,
+    SUM(CASE WHEN a.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+    SUM(CASE WHEN a.status = 'alpha' THEN 1 ELSE 0 END) as alpha,
+    COUNT(a.id) as total
+FROM siswa s
+LEFT JOIN kelas k ON s.kelas_id = k.id
+LEFT JOIN absensi a ON s.id = a.siswa_id
+    AND MONTH(a.tanggal) = ? AND YEAR(a.tanggal) = ?
+WHERE s.kelas_id = ?
+GROUP BY s.id
+```
+
+**Perhitungan Persentase:**
+```
+persentase_hadir = (hadir / total) * 100
+```
+
+**Visualisasi:**
+- Progress bar untuk persentase kehadiran
+- Color coding: Hijau (>80%), Kuning (60-80%), Merah (<60%)
+
+---
+
+### 10. Pengaturan Sistem (`pages/pengaturan.php`)
+
+**Tabel Database:** `pengaturan` (single row, id=1)
+
+**Fields:**
+- `nama_sekolah` - Nama sekolah
+- `alamat_sekolah` - Alamat lengkap
+- `logo` - Nama file logo
+- `jam_masuk` - Jam masuk default (mis: 07:00)
+- `jam_pulang` - Jam pulang default (mis: 15:00)
+- `batas_terlambat` - Batas waktu terlambat (menit)
+
+**Update Data Sekolah:**
+```sql
+UPDATE pengaturan
+SET nama_sekolah = ?, alamat_sekolah = ?, jam_masuk = ?,
+    jam_pulang = ?, batas_terlambat = ?
+WHERE id = 1
+```
+
+**Ganti Password Admin:**
+```php
+// 1. Verifikasi password lama
+SELECT * FROM admin WHERE id = ?
+password_verify($old_password, $db_password)
+
+// 2. Hash password baru
+$password_hash = password_hash($new_password, PASSWORD_DEFAULT);
+
+// 3. Update database
+UPDATE admin SET password = ? WHERE id = ?
+```
+
+**Validasi Password:**
+- Minimum 6 karakter
+- Password lama harus cocok
+- Konfirmasi password baru harus sama
+
+---
+
+### 11. PHP API Endpoints
+
+**`api/recognize.php`**
+- Method: POST
+- Parameters: `image` (base64), `kelas_id`, `mapel_id`, `tanggal`
+- Process:
+  1. Decode base64 image
+  2. Send to FastAPI `/api/recognize`
+  3. Check duplicate attendance
+  4. Save attendance photo
+  5. Insert into database
+- Response: JSON `{success, message, data}`
+
+**`api/register_face.php`**
+- Method: POST
+- Parameters: `student_id`, `images[]` (5 base64 images)
+- Process:
+  1. Send to FastAPI `/api/register`
+  2. Python handles face detection & encoding
+  3. Return result
+- Response: JSON `{success, message}`
+
+**`api/get_students.php`**
+- Method: GET
+- Parameters: `kelas_id`, `tanggal`
+- Process:
+  1. Query students by class
+  2. Check existing attendance for date
+  3. Return student list with status
+- Response: JSON array of students
+
+---
+
+### 12. Security Measures
+
+| Security Measure | Implementation |
+| ---------------- | -------------- |
+| **Password Hashing** | `password_hash()` dengan PASSWORD_DEFAULT (bcrypt) |
+| **SQL Injection** | `mysqli_real_escape_string()` untuk semua input |
+| **Session Protection** | Cek `$_SESSION['admin_id']` di setiap halaman |
+| **Directory Protection** | `.htaccess` blokir akses ke config/, python/, face_data/, temp/ |
+| **File Upload** | Base64 processing (no direct file upload) |
+| **cURL Communication** | Timeout settings, error handling untuk FastAPI calls |
+
+---
+
+### 13. Database Schema
+
+**Tabel Utama:**
+
+| Tabel | Primary Key | Foreign Keys |
+| ----- | ----------- | ------------ |
+| `admin` | id | - |
+| `kelas` | id | - |
+| `siswa` | id | kelas_id → kelas.id |
+| `mata_pelajaran` | id | - |
+| `absensi` | id | siswa_id → siswa.id, kelas_id → kelas.id, mapel_id → mata_pelajaran.id |
+| `pengaturan` | id | - |
+
+**Relasi:**
+```
+kelas (1) ←→ (N) siswa
+siswa (1) ←→ (N) absensi
+kelas (1) ←→ (N) absensi
+mata_pelajaran (1) ←→ (N) absensi
+```
