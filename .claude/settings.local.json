@@ -10,7 +10,16 @@
       "Bash(start //B python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload:*)",
       "Bash(curl:*)",
       "Bash(pip uninstall:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(where:*)",
+      "Bash(C:UsersivanAppDataLocalProgramsPythonPython312python.exe:*)",
+      "Bash(\"/c/Users/ivan/AppData/Local/Programs/Python/Python312/python.exe\":*)",
+      "Bash(\"/c/Users/ivan/AppData/Local/Programs/Python/Python312/python.exe\" -m pip install mediapipe)",
+      "Bash(\"/c/Users/ivan/AppData/Local/Programs/Python/Python312/python.exe\" -c \"import face_recognition; import mediapipe; import cv2; import mysql.connector; print\\(''All imports successful''\\)\")",
+      "Bash(\"/c/Users/ivan/AppData/Local/Programs/Python/Python312/python.exe\" -c \"import face_recognition_models; print\\(face_recognition_models.__file__\\)\")",
+      "Bash(\"/c/Users/ivan/AppData/Local/Programs/Python/Python312/python.exe\" -c \"from pkg_resources import resource_filename; print\\(''OK''\\)\")",
+      "Bash(\"/c/Users/ivan/AppData/Local/Programs/Python/Python312/python.exe\" -m pip install \"setuptools<75\")",
+      "Bash(\"/c/Users/ivan/AppData/Local/Programs/Python/Python312/python.exe\" -c \"from pkg_resources import resource_filename; import face_recognition; print\\(''All imports successful''\\)\")"
     ]
   }
 }
