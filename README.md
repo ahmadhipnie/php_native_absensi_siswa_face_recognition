@@ -59,8 +59,30 @@ php_native_absensi_siswa_face_recognition/
 ├── .htaccess               # Apache security config
 ├── index.php               # Entry point
 ├── login.php               # Halaman login
-├── start_fastapi.bat       # ⭐ Script untuk start FastAPI server
+├── start_fastapi.bat       # ⭐ Script untuk start FastAPI server (Windows)
 └── README.md               # Dokumentasi
+```
+
+## 🖥️ Menjalankan Aplikasi
+
+### Metode 1: Dua Terminal (Recommended)
+
+Buka **2 terminal** secara bersamaan:
+
+| Terminal | Command | Port |
+|----------|---------|------|
+| Terminal 1 | `cd python && python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload` | 8000 (FastAPI) |
+| Terminal 2 | `php -S localhost:8001` | 8001 (PHP Web) |
+
+### Metode 2: Laragon + FastAPI Manual
+
+1. **Laragon**: Start Apache (PHP otomatis berjalan di port 80)
+2. **Terminal**: Jalankan FastAPI server di port 8000
+3. Sesuaikan `BASE_URL` dan `FASTAPI_URL` di `config/database.php`
+
+### Metode 3: Batch File (Windows Only)
+
+Double-click `start_fastapi.bat` untuk menjalankan FastAPI server secara otomatis.
 ```
 
 ## 🏗️ Arsitektur Sistem
@@ -91,63 +113,106 @@ php_native_absensi_siswa_face_recognition/
 
 ### Prasyarat
 
-- **Laragon** (PHP 7.4+ dan MySQL)
-- **Python 3.8+**
+- **PHP 7.4+** (Laragon / XAMPP / PHP built-in server)
+- **Python 3.8+** (tested with Python 3.12)
+- **MySQL** (phpMyAdmin untuk import database)
 - **pip** (Python package manager)
-- **Visual C++ Build Tools** (untuk compile dlib di Windows)
+- **C++ Build Tools** (Windows: Visual Studio Build Tools untuk compile dlib)
 
 ### Langkah 1: Setup Database
 
-1. Buka **Laragon** → Start All
-2. Buka **phpMyAdmin** (http://localhost/phpmyadmin)
-3. Import file `database/db_absensi_siswa.sql`
+1. Buka **phpMyAdmin** (http://localhost/phpmyadmin)
+2. Import file `database/db_absensi_siswa.sql`
    - Klik **Import** → Choose File → pilih `db_absensi_siswa.sql` → **Go**
 
 ### Langkah 2: Setup PHP
 
-1. Letakkan folder project di `C:\laragon\www\php_native_absensi_siswa_face_recognition\`
-   (atau sesuaikan `BASE_URL` di `config/database.php`)
+1. Letakkan folder project di web server directory:
+   - **Laragon**: `C:\laragon\www\php_native_absensi_siswa_face_recognition\`
+   - **XAMPP**: `C:\xampp\htdocs\php_native_absensi_siswa_face_recognition\`
+   - Atau folder lainnya (sesuaikan `BASE_URL` di `config/database.php`)
+
 2. Pastikan extension PHP berikut aktif di `php.ini`:
    - `extension=gd`
    - `extension=mysqli`
    - `extension=curl` ← **PENTING untuk koneksi ke FastAPI**
 
-### Langkah 3: Setup Python & FastAPI
+### Langkah 3: Setup Python & Dependencies
+
+> **PENTING**: Gunakan Python 3.8 - 3.12 untuk kompatibilitas terbaik.
 
 ```bash
-# Install dependencies
 cd python
 pip install -r requirements.txt
 ```
 
-> **Catatan untuk Windows:** Jika `face_recognition` gagal diinstall:
->
-> 1. Install **CMake**: `pip install cmake`
-> 2. Install **dlib**: `pip install dlib`
-> 3. Lalu: `pip install face_recognition`
->
-> Atau gunakan prebuilt wheel:
->
-> ```bash
-> pip install https://github.com/jloh02/dlib/releases/download/v19.22/dlib-19.22.99-cp310-cp310-win_amd64.whl
-> ```
+**Jika terjadi error saat instalasi:**
 
-### Langkah 4: Jalankan FastAPI Server
+1. **Error `pkg_resources` tidak ditemukan:**
+   ```bash
+   pip install "setuptools<75"
+   ```
 
+2. **Error `face_recognition` atau `dlib` gagal install (Windows):**
+   ```bash
+   # Install Visual C++ Build Tools terlebih dahulu
+   # Lalu jalankan:
+   pip install cmake dlib
+   pip install face_recognition
+   ```
+
+3. **Gunakan prebuilt wheel untuk dlib (Windows):**
+   ```bash
+   # Untuk Python 3.12
+   pip install https://github.com/z-mahmud22/Dlib_Windows_Python3.x/raw/main/dlib-19.24.1-cp312-cp312-win_amd64.whl
+   ```
+
+### Langkah 4: Jalankan Kedua Server
+
+Sistem ini memerlukan **2 server yang berjalan bersamaan**:
+
+#### Terminal 1 - FastAPI Server (Python)
 ```bash
-# Cara 1: Jalankan via command line
 cd python
-python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
-
-# Cara 2: Klik start_fastapi.bat (Windows)
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-> Server berjalan di **http://localhost:8001**
-> Dokumentasi API Swagger: **http://localhost:8001/docs**
+> Server berjalan di **http://localhost:8000**
+> Dokumentasi API Swagger: **http://localhost:8000/docs**
 
-### Langkah 5: Akses Website
+#### Terminal 2 - PHP Web Server
+```bash
+# Opsi 1: PHP built-in server (untuk development)
+php -S localhost:8001
 
-Buka browser: **http://localhost/php_native_absensi_siswa_face_recognition/login.php**
+# Opsi 2: Gunakan Laragon/XAMPP Apache (otomatis)
+```
+
+> PHP web berjalan di **http://localhost:8001** atau sesuai konfigurasi web server
+
+### Langkah 5: Verifikasi & Akses
+
+1. **Cek FastAPI:** Buka http://localhost:8000/docs
+   - Harus muncul halaman Swagger UI
+
+2. **Cek Health API:**
+   ```bash
+   curl http://localhost:8000/api/health
+   ```
+   Response: `{"status": "ok", "database": "connected", ...}`
+
+3. **Akses Website:** Buka http://localhost:8001/login.php
+   - Atau sesuai BASE_URL di konfigurasi
+
+### Troubleshooting
+
+| Masalah | Solusi |
+| ------- | ------ |
+| `Failed to connect to Face Recognition server` | Pastikan FastAPI server (port 8000) sedang berjalan |
+| `Please install face_recognition_models` | Jalankan: `pip install "setuptools<75"` lalu `pip install -r requirements.txt` |
+| `ModuleNotFoundError: No module named 'pkg_resources'` | Downgrade setuptools: `pip install "setuptools<75"` |
+| `dlib install failed` | Install Visual C++ Build Tools, atau gunakan prebuilt wheel |
+| Port 8000 already in use | Ganti port: `python -m uvicorn main:app --port 8001` dan sesuaikan `FASTAPI_URL` di config |
 
 ## 🔐 Login Default
 
@@ -187,6 +252,28 @@ Buka browser: **http://localhost/php_native_absensi_siswa_face_recognition/login
 | POST   | `/api/register`  | Register wajah siswa (multiple images) |
 
 > Swagger UI: **http://localhost:8000/docs**
+
+## 🔧 Konfigurasi
+
+File konfigurasi utama: `config/database.php`
+
+```php
+// Database Configuration
+define('DB_HOST', 'localhost');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+define('DB_NAME', 'db_absensi_siswa');
+
+// Base URL (sesuaikan dengan lokasi project)
+define('BASE_URL', 'http://localhost:8001/');
+
+// FastAPI Python Server URL
+define('FASTAPI_URL', 'http://localhost:8000');
+```
+
+**Jika mengubah port FastAPI:**
+1. Ubah port saat menjalankan uvicorn: `--port 8001`
+2. Ubah `FASTAPI_URL` di `config/database.php`
 
 ## 📝 Catatan
 
