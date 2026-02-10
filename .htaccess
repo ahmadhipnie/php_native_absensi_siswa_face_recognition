@@ -1,0 +1,19 @@
+RewriteEngine On
+RewriteBase /php_native_absensi_siswa_face_recognition/
+
+# Protect directories
+Options -Indexes
+
+# Deny access to sensitive files
+<FilesMatch "\.(env|sql|py|npy|log)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Deny access to config directory
+<IfModule mod_rewrite.c>
+    RewriteRule ^config/ - [F,L]
+    RewriteRule ^python/ - [F,L]
+    RewriteRule ^face_data/ - [F,L]
+    RewriteRule ^temp/ - [F,L]
+</IfModule>

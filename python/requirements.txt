@@ -1,0 +1,9 @@
+# Python Dependencies for Face Recognition
+# Install with: pip install -r requirements.txt
+
+face_recognition==1.3.0
+mediapipe==0.10.9
+opencv-python==4.9.0.80
+numpy==1.26.4
+mysql-connector-python==8.3.0
+Pillow==10.2.0
