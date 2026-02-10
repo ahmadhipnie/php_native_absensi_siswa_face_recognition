@@ -14,7 +14,6 @@ dan **MediaPipe + face_recognition** untuk deteksi dan pengenalan wajah.
 | **Database**              | MySQL (Laragon / phpMyAdmin)                   |
 | **Frontend**              | Bootstrap 5, Chart.js, DataTables, SweetAlert2 |
 | **Face Recognition API**  | Python FastAPI                                 |
-| **Face Detection**        | MediaPipe (Google)                             |
 | **Face Recognition**      | face_recognition (dlib)                        |
 | **Image Processing**      | OpenCV Python                                  |
 | **DB Connector (Python)** | mysql-connector-python                         |
