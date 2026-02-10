@@ -1,7 +1,7 @@
 """
 FastAPI Server untuk Face Recognition
 Menyediakan API endpoint untuk register wajah dan recognize wajah.
-Jalankan: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+Jalankan: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 """
 
 import os
@@ -20,12 +20,11 @@ from typing import List, Optional
 
 try:
     import face_recognition
-    import mediapipe as mp
     import cv2
     import mysql.connector
 except ImportError as e:
     print(f"[ERROR] Library tidak ditemukan: {e}")
-    print("Jalankan: pip install face_recognition mediapipe opencv-python mysql-connector-python")
+    print("Jalankan: pip install face_recognition opencv-python mysql-connector-python")
     sys.exit(1)
 
 # ============================================================
@@ -158,19 +157,24 @@ def get_registered_faces():
         return []
 
 
-def detect_face_mediapipe(image: np.ndarray) -> bool:
-    """Validasi apakah ada wajah terdeteksi menggunakan MediaPipe."""
-    mp_face_detection = mp.solutions.face_detection
-    face_detection = mp_face_detection.FaceDetection(
-        model_selection=1,
-        min_detection_confidence=0.5
-    )
+def detect_face(image: np.ndarray) -> bool:
+    """Validasi apakah ada wajah terdeteksi menggunakan face_recognition."""
+    # Simpan ke temp file untuk face_recognition
+    temp_file = save_temp_image(image)
+    try:
+        face_image = face_recognition.load_image_file(temp_file)
+        face_locations = face_recognition.face_locations(face_image)
 
-    rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    results = face_detection.process(rgb_image)
-    face_detection.close()
+        # Clean up temp file
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
 
-    return results.detections is not None and len(results.detections) > 0
+        return len(face_locations) > 0
+    except Exception as e:
+        print(f"[ERROR] detect_face: {e}")
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        return False
 
 
 # ============================================================
@@ -200,8 +204,7 @@ async def health_check():
     return {
         "status": "ok",
         "database": db_status,
-        "face_recognition_library": True,
-        "mediapipe_library": True
+        "face_recognition_library": True
     }
 
 
@@ -222,8 +225,8 @@ async def recognize_face_endpoint(request: RecognizeRequest):
                 message="Gagal membaca gambar. Format tidak valid."
             )
 
-        # 2. Validasi wajah dengan MediaPipe
-        if not detect_face_mediapipe(image):
+        # 2. Validasi wajah terdeteksi
+        if not detect_face(image):
             return RecognizeResponse(
                 success=False,
                 message="Tidak ada wajah terdeteksi. Pastikan wajah terlihat jelas oleh kamera."
@@ -339,35 +342,22 @@ async def register_face_endpoint(request: RegisterRequest):
         foto_name = f"siswa_{student_id}.jpg"
         shutil.copy(saved_files[0], os.path.join(foto_dir, foto_name))
 
-        # 4. Process face encodings menggunakan MediaPipe + face_recognition
-        mp_face_detection = mp.solutions.face_detection
-        face_detection = mp_face_detection.FaceDetection(
-            model_selection=1,
-            min_detection_confidence=0.5
-        )
-
+        # 4. Process face encodings menggunakan face_recognition
         encodings = []
 
         for filepath in saved_files:
-            image = cv2.imread(filepath)
-            if image is None:
-                continue
+            # Validasi wajah dengan face_recognition
+            face_image = face_recognition.load_image_file(filepath)
+            face_locations = face_recognition.face_locations(face_image)
 
-            # Validasi wajah dengan MediaPipe
-            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            results = face_detection.process(rgb_image)
-
-            if not results.detections:
-                continue
+            if not face_locations:
+                continue  # Skip jika tidak ada wajah terdeteksi
 
             # Generate face encoding
-            face_image = face_recognition.load_image_file(filepath)
             face_encs = face_recognition.face_encodings(face_image)
 
             if face_encs:
                 encodings.append(face_encs[0])
-
-        face_detection.close()
 
         if not encodings:
             return RegisterResponse(
@@ -432,7 +422,7 @@ if __name__ == "__main__":
     import uvicorn
     print("=" * 50)
     print("  Face Recognition API Server")
-    print("  URL: http://localhost:8000")
-    print("  Docs: http://localhost:8000/docs")
+    print("  URL: http://localhost:8001")
+    print("  Docs: http://localhost:8001/docs")
     print("=" * 50)
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8001, reload=True)

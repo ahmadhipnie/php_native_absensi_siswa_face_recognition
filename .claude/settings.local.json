@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(php:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(start //B php -S localhost:8000)",
+      "Bash(start //B python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload:*)",
+      "Bash(curl:*)",
+      "Bash(pip uninstall:*)",
+      "Bash(pip install:*)"
+    ]
+  }
+}
