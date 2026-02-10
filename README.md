@@ -137,13 +137,13 @@ pip install -r requirements.txt
 ```bash
 # Cara 1: Jalankan via command line
 cd python
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 
 # Cara 2: Klik start_fastapi.bat (Windows)
 ```
 
-> Server berjalan di **http://localhost:8000**
-> Dokumentasi API Swagger: **http://localhost:8000/docs**
+> Server berjalan di **http://localhost:8001**
+> Dokumentasi API Swagger: **http://localhost:8001/docs**
 
 ### Langkah 5: Akses Website
 
