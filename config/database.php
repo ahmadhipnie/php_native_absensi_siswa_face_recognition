@@ -19,6 +19,9 @@ mysqli_set_charset($conn, "utf8mb4");
 // Base URL
 define('BASE_URL', 'http://localhost/php_native_absensi_siswa_face_recognition/');
 
+// FastAPI Python Server URL
+define('FASTAPI_URL', 'http://localhost:8000');
+
 // Upload paths
 define('UPLOAD_PATH', __DIR__ . '/../uploads/');
 define('FACE_DATA_PATH', __DIR__ . '/../face_data/');
