@@ -16,11 +16,11 @@ if (!$conn) {
 // Set charset
 mysqli_set_charset($conn, "utf8mb4");
 
-// Base URL
-define('BASE_URL', 'http://localhost:8000/');
+// Base URL (sesuaikan dengan port PHP server)
+define('BASE_URL', 'http://localhost:8001/');
 
 // FastAPI Python Server URL
-define('FASTAPI_URL', 'http://localhost:8001');
+define('FASTAPI_URL', 'http://localhost:8000');
 
 // Upload paths
 define('UPLOAD_PATH', __DIR__ . '/../uploads/');

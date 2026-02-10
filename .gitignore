@@ -66,4 +66,5 @@ pip-log.txt
 # !/database/*.sql
 
 CLAUDE.md
-.claude
+/.claude
+/.claude/*
