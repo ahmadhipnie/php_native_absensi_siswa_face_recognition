@@ -1,5 +1,5 @@
 <?php
-// API: Face Recognition - Recognize face and record attendance
+// API: Face Recognition - Recognize face and record attendance via FastAPI
 require_once __DIR__ . '/../config/database.php';
 
 header('Content-Type: application/json');
@@ -16,30 +16,46 @@ $kelas_id = $data['kelas_id'] ?? '';
 $mapel_id = $data['mapel_id'] ?? '';
 $tanggal = $data['tanggal'] ?? date('Y-m-d');
 
-// Save temporary image for Python processing
-$image_data = str_replace('data:image/jpeg;base64,', '', $image_data);
-$image_data = str_replace(' ', '+', $image_data);
-$image_binary = base64_decode($image_data);
+// ============================================================
+// Kirim ke FastAPI untuk face recognition
+// ============================================================
+$fastapi_url = defined('FASTAPI_URL') ? FASTAPI_URL : 'http://localhost:8000';
 
-$temp_dir = __DIR__ . '/../temp/';
-if (!is_dir($temp_dir)) {
-    mkdir($temp_dir, 0777, true);
+$payload = json_encode(['image' => $image_data]);
+
+$ch = curl_init($fastapi_url . '/api/recognize');
+curl_setopt_array($ch, [
+    CURLOPT_POST => true,
+    CURLOPT_POSTFIELDS => $payload,
+    CURLOPT_HTTPHEADER => [
+        'Content-Type: application/json',
+        'Content-Length: ' . strlen($payload)
+    ],
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_TIMEOUT => 30,
+    CURLOPT_CONNECTTIMEOUT => 5,
+]);
+
+$response = curl_exec($ch);
+$http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$curl_error = curl_error($ch);
+curl_close($ch);
+
+// Cek error koneksi ke FastAPI
+if ($response === false || $http_code !== 200) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Gagal menghubungi server Face Recognition. Pastikan FastAPI server sedang berjalan. Error: ' . ($curl_error ?: "HTTP $http_code")
+    ]);
+    exit;
 }
 
-$temp_file = $temp_dir . 'capture_' . time() . '.jpg';
-file_put_contents($temp_file, $image_binary);
-
-// Call Python face recognition script
-$python_script = __DIR__ . '/../python/recognize_face.py';
-$command = "python \"$python_script\" \"$temp_file\" 2>&1";
-$output = shell_exec($command);
-
-// Parse Python output (JSON)
-$result = json_decode($output, true);
+// Parse response dari FastAPI
+$result = json_decode($response, true);
 
 if ($result && $result['success']) {
     $student_id = (int)$result['student_id'];
-    $confidence = $result['confidence'];
+    $confidence = $result['confidence'] / 100; // FastAPI returns percentage, convert back
 
     // Get student info
     $student = mysqli_fetch_assoc(mysqli_query($conn, "
@@ -51,7 +67,7 @@ if ($result && $result['success']) {
     if ($student) {
         // Check if already marked attendance today
         $check = mysqli_query($conn, "SELECT id FROM absensi WHERE siswa_id=$student_id AND tanggal='$tanggal'");
-        
+
         if (mysqli_num_rows($check) > 0) {
             echo json_encode([
                 'success' => true,
@@ -59,7 +75,7 @@ if ($result && $result['success']) {
                 'nama' => $student['nama_lengkap'],
                 'nis' => $student['nis'],
                 'kelas' => $student['nama_kelas'],
-                'confidence' => round($confidence * 100, 1),
+                'confidence' => round($result['confidence'], 1),
                 'message' => 'Siswa sudah absen hari ini'
             ]);
         } else {
@@ -67,16 +83,20 @@ if ($result && $result['success']) {
             $kelas = $student['kelas_id'];
             $mapel_val = $mapel_id ? (int)$mapel_id : 'NULL';
             $jam = date('H:i:s');
-            
-            // Save capture photo
+
+            // Simpan foto capture dari base64
             $foto_name = 'absen_' . $student_id . '_' . date('Ymd_His') . '.jpg';
             $foto_dir = __DIR__ . '/../uploads/absensi/';
             if (!is_dir($foto_dir)) mkdir($foto_dir, 0777, true);
-            copy($temp_file, $foto_dir . $foto_name);
 
+            $img_data = str_replace('data:image/jpeg;base64,', '', $image_data);
+            $img_data = str_replace(' ', '+', $img_data);
+            file_put_contents($foto_dir . $foto_name, base64_decode($img_data));
+
+            $confidence_db = $confidence;
             mysqli_query($conn, "
                 INSERT INTO absensi (siswa_id, kelas_id, mapel_id, tanggal, jam_masuk, status, metode_absen, foto_absen, confidence_score)
-                VALUES ($student_id, $kelas, $mapel_val, '$tanggal', '$jam', 'hadir', 'face_recognition', '$foto_name', $confidence)
+                VALUES ($student_id, $kelas, $mapel_val, '$tanggal', '$jam', 'hadir', 'face_recognition', '$foto_name', $confidence_db)
             ");
 
             echo json_encode([
@@ -84,7 +104,7 @@ if ($result && $result['success']) {
                 'nama' => $student['nama_lengkap'],
                 'nis' => $student['nis'],
                 'kelas' => $student['nama_kelas'],
-                'confidence' => round($confidence * 100, 1),
+                'confidence' => round($result['confidence'], 1),
                 'jam_masuk' => $jam
             ]);
         }
@@ -93,12 +113,7 @@ if ($result && $result['success']) {
     }
 } else {
     echo json_encode([
-        'success' => false, 
+        'success' => false,
         'message' => $result['message'] ?? 'Wajah tidak dikenali. Pastikan wajah sudah terdaftar.'
     ]);
-}
-
-// Cleanup temp file
-if (file_exists($temp_file)) {
-    unlink($temp_file);
 }
