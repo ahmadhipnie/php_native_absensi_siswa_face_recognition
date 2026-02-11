@@ -38,6 +38,7 @@ __pypackages__/
 .idea/
 *.sublime-project
 *.sublime-workspace
+.claude/
 
 # Logs and databases
 *.log

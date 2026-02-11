@@ -263,8 +263,8 @@ async def recognize_face_endpoint(request: RecognizeRequest):
         # Minimum confidence threshold: 70%
         # Confidence = (1 - distance) * 100
         # Distance threshold = 1 - 0.70 = 0.30
-        DISTANCE_THRESHOLD = 0.30
-        MIN_CONFIDENCE = 70.0
+        DISTANCE_THRESHOLD = 0.30  # Maximum distance allowed
+        MIN_CONFIDENCE = 70.0  # Minimum confidence percentage
 
         for student in registered_students:
             try:
@@ -273,14 +273,15 @@ async def recognize_face_endpoint(request: RecognizeRequest):
                     [stored_encoding], captured_encoding
                 )[0]
 
-                if distance < best_distance:
+                # Only consider matches below distance threshold
+                if distance < best_distance and distance <= DISTANCE_THRESHOLD:
                     best_distance = distance
                     best_match = student
             except (json.JSONDecodeError, ValueError):
                 continue
 
         # 7. Return hasil dengan threshold minimum 70% confidence
-        if best_match:
+        if best_match and best_distance <= DISTANCE_THRESHOLD:
             confidence = round((1 - best_distance) * 100, 1)
 
             # Cek apakah confidence memenuhi threshold minimum
@@ -298,12 +299,15 @@ async def recognize_face_endpoint(request: RecognizeRequest):
                 return RecognizeResponse(
                     success=False,
                     confidence=confidence,
-                    message=f"Absensi gagal. Tingkat kecocokan hanya {confidence}%, minimum 70%. Wajah tidak cocok dengan data yang terdaftar."
+                    message=f"Absensi gagal! Tingkat kecocokan wajah hanya {confidence}% (minimum 70%). Wajah tidak cocok dengan data yang terdaftar."
                 )
         else:
+            # No match found or distance too high
+            confidence_found = round((1 - best_distance) * 100, 1) if best_match else 0
             return RecognizeResponse(
                 success=False,
-                message="Wajah tidak dikenali. Pastikan wajah sudah terdaftar di sistem."
+                confidence=confidence_found if best_match else None,
+                message=f"Wajah tidak dikenali (kecocokan {confidence_found}%, minimum 70%). Pastikan wajah sudah terdaftar di sistem." if best_match else "Wajah tidak dikenali. Pastikan wajah sudah terdaftar di sistem."
             )
 
     except Exception as e:

@@ -56,7 +56,23 @@ $result = json_decode($response, true);
 // Debug: Log response untuk troubleshooting
 error_log("FastAPI Response: " . $response);
 
+// SAFETY CHECK: Validate confidence threshold (70% minimum)
+$MIN_CONFIDENCE_THRESHOLD = 70.0;
+
 if ($result && isset($result['success']) && $result['success'] === true) {
+    // Double-check confidence level as safety measure
+    $confidence_percent = isset($result['confidence']) ? floatval($result['confidence']) : 0;
+    
+    if ($confidence_percent < $MIN_CONFIDENCE_THRESHOLD) {
+        // Reject if confidence is below threshold
+        echo json_encode([
+            'success' => false,
+            'confidence' => $confidence_percent,
+            'message' => "Absensi gagal! Tingkat kecocokan wajah hanya {$confidence_percent}% (minimum {$MIN_CONFIDENCE_THRESHOLD}%). Wajah tidak cocok dengan data yang terdaftar."
+        ]);
+        exit;
+    }
+    
     $student_id = (int)$result['student_id'];
     $confidence = $result['confidence'] / 100; // FastAPI returns percentage, convert back
 

@@ -170,17 +170,50 @@ function captureMultiple() {
 
 function registerFace() {
     const studentId = document.getElementById('selectStudent').value;
+    const studentSelect = document.getElementById('selectStudent');
+    const studentName = studentSelect.options[studentSelect.selectedIndex].text;
+    
     if (!studentId) {
-        Swal.fire('Error', 'Pilih siswa terlebih dahulu!', 'error');
+        Swal.fire({
+            icon: 'error',
+            title: 'Oops...',
+            text: 'Pilih siswa terlebih dahulu!',
+            confirmButtonColor: '#764ba2'
+        });
         return;
     }
     if (capturedPhotos.length < MAX_PHOTOS) {
-        Swal.fire('Error', `Ambil ${MAX_PHOTOS} foto terlebih dahulu!`, 'error');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Foto Belum Lengkap',
+            text: `Ambil ${MAX_PHOTOS} foto terlebih dahulu! (${capturedPhotos.length}/${MAX_PHOTOS})`,
+            confirmButtonColor: '#764ba2'
+        });
         return;
     }
 
-    const progressBar = document.getElementById('progressBar');
-    progressBar.classList.remove('d-none');
+    // Show processing modal
+    Swal.fire({
+        title: 'Memproses Registrasi...',
+        html: `
+            <div style="text-align:center; padding:20px;">
+                <div style="margin-bottom:20px;">
+                    <i class="fas fa-cog fa-spin" style="font-size:50px; color:#667eea;"></i>
+                </div>
+                <p style="margin:10px 0;"><strong>${studentName}</strong></p>
+                <p style="color:#636e72; font-size:14px;">Sedang memproses ${MAX_PHOTOS} foto wajah...</p>
+                <div class="progress mt-3" style="height:25px; border-radius:12px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" 
+                         style="width:50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                         Memproses...
+                    </div>
+                </div>
+            </div>
+        `,
+        allowOutsideClick: false,
+        showConfirmButton: false
+    });
 
     fetch('../api/register_face.php', {
         method: 'POST',
@@ -193,16 +226,103 @@ function registerFace() {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            progressBar.querySelector('.progress-bar').style.width = '100%';
-            progressBar.querySelector('.progress-bar').textContent = '100%';
-            Swal.fire('Berhasil!', 'Wajah berhasil didaftarkan!', 'success')
-            .then(() => location.reload());
+            // Success Modal
+            Swal.fire({
+                icon: 'success',
+                title: '<strong style="color:#28a745;">✅ Registrasi Berhasil!</strong>',
+                html: `
+                    <div style="text-align:center; padding:20px;">
+                        <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; padding:20px; border-radius:15px; margin-bottom:20px;">
+                            <i class="fas fa-user-check" style="font-size:50px; margin-bottom:10px;"></i>
+                            <h4 style="margin:10px 0; color:white;">${studentName}</h4>
+                            <p style="margin:0; font-size:14px; opacity:0.9;">Wajah berhasil didaftarkan ke sistem</p>
+                        </div>
+                        
+                        <div style="background:#d4edda; padding:15px; border-radius:12px; margin-bottom:15px; border-left:4px solid #28a745;">
+                            <div style="color:#155724;">
+                                <i class="fas fa-check-circle"></i> 
+                                <strong>${MAX_PHOTOS} foto berhasil diproses</strong>
+                            </div>
+                            <div style="color:#155724; font-size:13px; margin-top:5px;">
+                                Face encoding berhasil dibuat dan disimpan
+                            </div>
+                        </div>
+                        
+                        <div style="background:#e7f3ff; padding:12px; border-radius:10px; text-align:left; font-size:13px; color:#004085;">
+                            <strong><i class="fas fa-info-circle"></i> Informasi:</strong>
+                            <ul style="margin:8px 0 0 0; padding-left:20px;">
+                                <li>Siswa sekarang dapat melakukan absensi dengan face recognition</li>
+                                <li>Data wajah telah tersimpan dengan aman</li>
+                                <li>Tingkat kecocokan minimum untuk absensi: <strong>70%</strong></li>
+                            </ul>
+                        </div>
+                    </div>
+                `,
+                confirmButtonText: 'OK, Selesai',
+                confirmButtonColor: '#764ba2',
+                width: '550px',
+                allowOutsideClick: false
+            }).then(() => location.reload());
         } else {
-            Swal.fire('Gagal', data.message || 'Gagal mendaftarkan wajah', 'error');
+            // Failure Modal
+            Swal.fire({
+                icon: 'error',
+                title: '<strong style="color:#dc3545;">❌ Registrasi Gagal!</strong>',
+                html: `
+                    <div style="text-align:center; padding:20px;">
+                        <div style="background:#f8d7da; color:#721c24; padding:20px; border-radius:12px; margin-bottom:15px; border-left:4px solid #dc3545;">
+                            <i class="fas fa-exclamation-triangle" style="font-size:40px; margin-bottom:10px;"></i>
+                            <p style="margin:0; font-size:15px; line-height:1.6;">
+                                ${data.message || 'Gagal mendaftarkan wajah. Silakan coba lagi.'}
+                            </p>
+                        </div>
+                        
+                        <div style="background:#fff3cd; padding:12px; border-radius:10px; text-align:left; font-size:13px; color:#856404;">
+                            <strong><i class="fas fa-lightbulb"></i> Kemungkinan Penyebab:</strong>
+                            <ul style="margin:8px 0 0 0; padding-left:20px;">
+                                <li>Wajah tidak terdeteksi dengan jelas pada foto</li>
+                                <li>Pencahayaan kurang memadai</li>
+                                <li>Library Python belum terinstall dengan benar</li>
+                                <li>Server FastAPI tidak berjalan</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="margin-top:15px; padding:10px; background:#e7f3ff; border-radius:8px; font-size:13px; color:#004085;">
+                            <i class="fas fa-tools"></i> Pastikan FastAPI server sudah berjalan di port 8000
+                        </div>
+                    </div>
+                `,
+                confirmButtonText: 'Coba Lagi',
+                confirmButtonColor: '#764ba2',
+                width: '550px',
+                allowOutsideClick: false
+            }).then(() => {
+                // Reset form untuk coba lagi
+                capturedPhotos = [];
+                document.getElementById('photoPreview').innerHTML = '';
+                document.getElementById('btnCapture').innerHTML = '<i class="fas fa-camera me-1"></i>Ambil Foto (0/5)';
+                document.getElementById('btnCapture').disabled = false;
+                document.getElementById('btnRegister').disabled = true;
+            });
         }
     })
     .catch(err => {
-        Swal.fire('Error', 'Gagal menghubungi server', 'error');
+        Swal.fire({
+            icon: 'error',
+            title: 'Error Koneksi',
+            html: `
+                <div style="padding:15px;">
+                    <p>Gagal menghubungi server:</p>
+                    <code style="background:#f8f9fa; padding:10px; display:block; border-radius:8px; color:#dc3545;">
+                        ${err.message}
+                    </code>
+                    <p style="margin-top:15px; font-size:13px; color:#636e72;">
+                        Pastikan server berjalan dengan baik.
+                    </p>
+                </div>
+            `,
+            confirmButtonColor: '#764ba2'
+        });
     });
 }
 </script>
