@@ -223,15 +223,32 @@ php -S localhost:8001
 ## 📌 Fitur
 
 - ✅ **Dashboard** - Statistik dan ringkasan absensi
-- ✅ **Absensi Face Recognition** - Absensi otomatis via webcam
+- ✅ **Absensi Face Recognition** - Absensi otomatis via webcam dengan modal feedback
 - ✅ **Absensi Manual** - Input absensi manual per kelas
-- ✅ **Register Wajah** - Pendaftaran wajah siswa (5 foto)
+- ✅ **Register Wajah** - Pendaftaran wajah siswa (5 foto) dengan modal feedback
+- ✅ **Hapus Data Wajah** - Hapus registrasi wajah individu atau bulk delete semua
 - ✅ **Data Siswa** - CRUD data siswa
 - ✅ **Data Kelas** - CRUD data kelas
 - ✅ **Mata Pelajaran** - CRUD data mapel
 - ✅ **Laporan** - Laporan absensi dengan filter
 - ✅ **Rekap** - Rekap absensi per bulan dengan persentase
 - ✅ **Pengaturan** - Setting sekolah & ubah password
+
+### 🆕 Fitur Terbaru (v1.1.0 - Feb 11, 2026)
+
+#### **Enhanced Modal System**
+- **Rich Feedback Modals**: Semua operasi absensi dan registrasi menggunakan modal popup yang informatif
+- **Color-coded Badges**: Badge confidence dengan warna (hijau ≥80%, kuning 70-79%, merah <70%)
+- **Detailed Information**: Menampilkan NIS, kelas, waktu, dan tips troubleshooting
+- **Professional Design**: Gradient cards, icon indicators, responsive layout
+
+#### **Face Registration Management**
+- **Individual Delete**: Hapus data wajah per siswa dengan konfirmasi modal
+- **Bulk Delete**: Hapus semua data wajah sekaligus dengan double confirmation
+- **Smart Cleanup**: Otomatis hapus file .pkl dan update database
+- **Statistics Display**: Menampilkan jumlah data terhapus dan status file
+
+📖 **Dokumentasi Lengkap**: Lihat [`docs/FACE_DELETE_FEATURE.md`](docs/FACE_DELETE_FEATURE.md)
 
 ## ⚙️ Cara Kerja Face Recognition
 
