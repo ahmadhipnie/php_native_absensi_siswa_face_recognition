@@ -37,19 +37,6 @@ $subjects = mysqli_query($conn, "SELECT * FROM mata_pelajaran ORDER BY nama_mape
                         <i class="fas fa-video-slash me-1"></i>Matikan Kamera
                     </button>
                 </div>
-
-                <!-- Recognition Result -->
-                <div id="recognitionResult" class="d-none">
-                    <div class="alert" id="resultAlert">
-                        <div class="d-flex align-items-center">
-                            <div id="resultIcon" class="me-3" style="font-size:40px;"></div>
-                            <div class="text-start">
-                                <h5 id="resultName" class="mb-1"></h5>
-                                <p id="resultInfo" class="mb-0" style="font-size:13px;"></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -136,12 +123,17 @@ $subjects = mysqli_query($conn, "SELECT * FROM mata_pelajaran ORDER BY nama_mape
                 <h5><i class="fas fa-info-circle me-2 text-primary"></i>Cara Penggunaan</h5>
             </div>
             <div class="card-body">
+                <div class="alert alert-warning mb-3" style="font-size:13px;">
+                    <i class="fas fa-exclamation-triangle me-2"></i><strong>Penting:</strong> 
+                    Tingkat kecocokan wajah minimal <strong>70%</strong> untuk absensi berhasil.
+                </div>
                 <ol class="mb-0" style="font-size:13px; color:#636e72;">
                     <li class="mb-2">Pilih <strong>Kelas</strong> dan <strong>Mata Pelajaran</strong></li>
                     <li class="mb-2">Klik <strong>"Nyalakan Kamera"</strong> untuk memulai</li>
-                    <li class="mb-2">Arahkan wajah siswa ke kamera</li>
+                    <li class="mb-2">Arahkan wajah siswa ke kamera dengan jelas</li>
+                    <li class="mb-2">Pastikan pencahayaan cukup dan wajah terlihat penuh</li>
                     <li class="mb-2">Klik <strong>"Absen Sekarang"</strong> untuk mengenali wajah</li>
-                    <li class="mb-2">Sistem akan otomatis mengenali dan mencatat absensi</li>
+                    <li class="mb-2">Sistem memerlukan <strong>kecocokan ≥ 70%</strong> untuk absensi berhasil</li>
                     <li>Pastikan wajah siswa sudah terdaftar di menu <strong>Register Wajah</strong></li>
                 </ol>
             </div>
@@ -228,28 +220,103 @@ function captureAndRecognize() {
 }
 
 function showResult(data) {
-    const resultDiv = document.getElementById('recognitionResult');
-    const resultAlert = document.getElementById('resultAlert');
-    const resultIcon = document.getElementById('resultIcon');
-    const resultName = document.getElementById('resultName');
-    const resultInfo = document.getElementById('resultInfo');
-
-    resultDiv.classList.remove('d-none');
-
     if (data.success) {
-        resultAlert.className = 'alert alert-success';
-        resultIcon.innerHTML = '<i class="fas fa-check-circle text-success"></i>';
-        resultName.textContent = data.nama;
-        resultInfo.textContent = `NIS: ${data.nis} | Kelas: ${data.kelas} | Confidence: ${data.confidence}%`;
+        // Show confidence with color coding
+        let confidenceColor = '#28a745'; // green
+        let confidenceIcon = 'success';
+        if (data.confidence < 80) {
+            confidenceColor = '#ffc107'; // yellow
+            confidenceIcon = 'warning';
+        }
+        if (data.confidence < 70) {
+            confidenceColor = '#dc3545'; // red
+            confidenceIcon = 'error';
+        }
+        
+        // Success Modal
+        Swal.fire({
+            icon: 'success',
+            title: '<strong style="color:#28a745;">✅ Absensi Berhasil!</strong>',
+            html: `
+                <div style="text-align:center; padding:20px;">
+                    <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; padding:15px; border-radius:15px; margin-bottom:20px;">
+                        <h3 style="margin:0; color:white;">${data.nama}</h3>
+                        <p style="margin:5px 0 0; font-size:14px; opacity:0.9;">NIS: ${data.nis}</p>
+                    </div>
+                    <div style="background:#f8f9fa; padding:15px; border-radius:12px; margin-bottom:15px;">
+                        <div style="margin-bottom:10px;">
+                            <i class="fas fa-school" style="color:#667eea; margin-right:8px;"></i>
+                            <strong>Kelas:</strong> ${data.kelas}
+                        </div>
+                        <div style="margin-bottom:10px;">
+                            <i class="fas fa-clock" style="color:#667eea; margin-right:8px;"></i>
+                            <strong>Jam Masuk:</strong> ${data.jam_masuk || new Date().toLocaleTimeString('id-ID')}
+                        </div>
+                        <div>
+                            <i class="fas fa-percentage" style="color:${confidenceColor}; margin-right:8px;"></i>
+                            <strong>Tingkat Kecocokan:</strong> 
+                            <span style="background:${confidenceColor}; color:white; padding:4px 12px; border-radius:20px; font-weight:600;">
+                                ${data.confidence}%
+                            </span>
+                        </div>
+                    </div>
+                    <p style="color:#28a745; font-size:14px; margin:0;">
+                        <i class="fas fa-check-circle"></i> Data absensi berhasil disimpan
+                    </p>
+                </div>
+            `,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#764ba2',
+            width: '500px',
+            allowOutsideClick: false
+        });
     } else {
-        resultAlert.className = 'alert alert-danger';
-        resultIcon.innerHTML = '<i class="fas fa-times-circle text-danger"></i>';
-        resultName.textContent = 'Wajah Tidak Dikenali';
-        resultInfo.textContent = data.message || 'Pastikan wajah sudah terdaftar di sistem';
+        // Failure Modal
+        let confidenceText = '';
+        if (data.confidence !== undefined && data.confidence !== null) {
+            confidenceText = `
+                <div style="background:#fff3cd; padding:12px; border-radius:10px; margin-top:15px; border-left:4px solid #ffc107;">
+                    <i class="fas fa-exclamation-triangle" style="color:#856404;"></i>
+                    <strong>Tingkat Kecocokan:</strong> 
+                    <span style="background:#dc3545; color:white; padding:3px 10px; border-radius:15px; font-weight:600;">
+                        ${data.confidence}%
+                    </span>
+                    <div style="font-size:12px; color:#856404; margin-top:5px;">
+                        Minimum yang diperlukan: <strong>70%</strong>
+                    </div>
+                </div>
+            `;
+        }
+        
+        Swal.fire({
+            icon: 'error',
+            title: '<strong style="color:#dc3545;">❌ Absensi Gagal!</strong>',
+            html: `
+                <div style="text-align:center; padding:20px;">
+                    <div style="background:#f8d7da; color:#721c24; padding:15px; border-radius:12px; margin-bottom:15px; border-left:4px solid #dc3545;">
+                        <i class="fas fa-times-circle" style="font-size:40px; margin-bottom:10px;"></i>
+                        <p style="margin:0; font-size:15px; line-height:1.6;">
+                            ${data.message || 'Wajah tidak dikenali. Pastikan wajah sudah terdaftar di sistem.'}
+                        </p>
+                    </div>
+                    ${confidenceText}
+                    <div style="background:#e7f3ff; padding:12px; border-radius:10px; margin-top:15px; text-align:left; font-size:13px; color:#004085;">
+                        <strong><i class="fas fa-lightbulb"></i> Tips:</strong>
+                        <ul style="margin:8px 0 0 0; padding-left:20px;">
+                            <li>Pastikan wajah terlihat jelas dan tidak tertutup</li>
+                            <li>Pastikan pencahayaan cukup terang</li>
+                            <li>Posisikan wajah di tengah kamera</li>
+                            <li>Wajah harus sudah terdaftar di menu Register Wajah</li>
+                        </ul>
+                    </div>
+                </div>
+            `,
+            confirmButtonText: 'Coba Lagi',
+            confirmButtonColor: '#764ba2',
+            width: '550px',
+            allowOutsideClick: false
+        });
     }
-
-    // Auto hide after 5 seconds
-    setTimeout(() => { resultDiv.classList.add('d-none'); }, 5000);
 }
 </script>
 

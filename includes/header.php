@@ -399,6 +399,9 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
             <a href="pengaturan.php" class="menu-item <?= $current_page === 'pengaturan' ? 'active' : '' ?>">
                 <i class="fas fa-cog"></i> Pengaturan
             </a>
+            <!-- <a href="dokumentasi.php" class="menu-item <?= $current_page === 'dokumentasi' ? 'active' : '' ?>">
+                <i class="fas fa-book"></i> Dokumentasi
+            </a> -->
             <a href="logout.php" class="menu-item">
                 <i class="fas fa-sign-out-alt"></i> Logout
             </a>
